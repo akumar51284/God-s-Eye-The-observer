@@ -1,0 +1,103 @@
+<!DOCTYPE html>
+<html lang="hi">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>God’s Eye – Market Observer</title>
+<style>
+:root{box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px);
+--bg:#0b1020;--card:#141b30;--line:#26304d;--tx:#e8ecf8;--mut:#8d98b8;--bull:#27d38a;--bear:#ff5470;--neu:#9aa6c8;--acc:#7c8cff}
+@media (prefers-color-scheme:light){:root:not([data-theme="dark"]){--bg:#eef1fa;--card:#fff;--line:#d5dbee;--tx:#141b30;--mut:#5b6685;--bull:#0f9d62;--bear:#d6304d;--neu:#66708f}}
+html{scroll-padding-top:env(safe-area-inset-top,0px);color-scheme:dark light}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--tx);font-family:"Noto Sans Devanagari","Segoe UI",system-ui,sans-serif;max-width:720px;margin-inline:auto;padding:0 14px 40px}
+header{padding:14px 0 6px}
+h1{margin:0;font-size:26px;letter-spacing:-.5px}
+h1 span{color:var(--acc)}
+.sub{display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-top:6px;font-size:12px;color:var(--mut)}
+.badge{padding:3px 9px;border-radius:99px;font-weight:700;font-size:12px}
+.open{background:#0f7a4b;color:#fff}.closed{background:#7a2230;color:#fff}
+nav{display:flex;gap:8px;overflow-x:auto;padding:10px 0;position:sticky;top:env(safe-area-inset-top,0px);background:var(--bg);z-index:5;scrollbar-width:none}
+nav::-webkit-scrollbar{display:none}
+nav button{flex:none;border:1px solid var(--line);background:var(--card);color:var(--mut);padding:8px 14px;border-radius:99px;font:600 14px inherit;font-family:inherit}
+nav button.on{color:#fff;background:var(--acc);border-color:var(--acc)}
+.mood{background:var(--card);border:1px solid var(--line);border-radius:16px;padding:14px;margin:6px 0 14px}
+.mood b{font-size:15px}
+.bar{height:10px;border-radius:9px;background:linear-gradient(90deg,var(--bear),var(--neu),var(--bull));position:relative;margin:12px 0 6px}
+.bar i{position:absolute;top:-4px;width:6px;height:18px;border-radius:3px;background:var(--tx);transform:translateX(-50%)}
+.bar+div{display:flex;justify-content:space-between;font-size:11px;color:var(--mut)}
+.grid{display:grid;grid-template-columns:repeat(2,1fr);gap:10px}
+.c{background:var(--card);border:1px solid var(--line);border-left-width:4px;border-radius:14px;padding:12px;text-align:left;color:var(--tx);font-family:inherit;cursor:pointer}
+.c.bull{border-left-color:var(--bull)}.c.bear{border-left-color:var(--bear)}.c.neu{border-left-color:var(--neu)}
+.c small{color:var(--mut);font-weight:700;font-size:12px}
+.sc{font-size:28px;font-weight:800;margin:2px 0}
+.bull .sc,.bull .lb{color:var(--bull)}.bear .sc,.bear .lb{color:var(--bear)}.neu .sc,.neu .lb{color:var(--neu)}
+.lb{font-size:12px;font-weight:700}
+svg.sp{width:100%;height:36px;margin-top:6px;display:block}
+.hint{font-size:11px;color:var(--mut);margin-top:4px}
+#detail{background:var(--card);border:1px solid var(--line);border-radius:16px;padding:14px;margin-top:12px}
+#detail h3{margin:0 0 8px}
+.row{display:flex;justify-content:space-between;padding:8px 0;border-top:1px solid var(--line);font-size:14px}
+.row span:first-child{color:var(--mut)}
+table{width:100%;border-collapse:collapse;font-size:14px;background:var(--card);border-radius:14px;overflow:hidden}
+th,td{padding:10px;text-align:right;border-bottom:1px solid var(--line)}
+th:first-child,td:first-child{text-align:left}
+th{color:var(--mut);font-size:12px}
+.p{color:var(--bull)}.n{color:var(--bear)}
+.note{font-size:12px;color:var(--mut);margin-top:16px;line-height:1.5}
+.hide{display:none}
+</style>
+</head>
+<body>
+<header>
+  <h1>God’s <span>Eye</span></h1>
+  <div class="sub"><span id="mk" class="badge"></span><span id="up"></span></div>
+</header>
+<nav id="tabs"></nav>
+
+<section id="v-sent">
+  <div class="mood"><b id="moodT"></b><div class="bar"><i id="pin"></i></div><div><span>Bearish</span><span>Neutral</span><span>Bullish</span></div></div>
+  <div class="grid" id="grid"></div>
+  <div id="detail" class="hide"></div>
+</section>
+
+<section id="v-fii" class="hide">
+  <table><thead><tr><th>Date</th><th>FII (₹ Cr)</th><th>DII (₹ Cr)</th></tr></thead><tbody id="fii"></tbody></table>
+</section>
+
+<section id="v-watch" class="hide">
+  <table><thead><tr><th>Stock</th><th>Price</th><th>Change</th></tr></thead><tbody id="wl"></tbody></table>
+</section>
+
+<p class="note">Data Yahoo Finance se, 15 min tak delayed ho sakta hai. All information is for educational purposes only. Ye investment advice nahi hai.</p>
+
+<script>
+const lab=s=>s<=-5?["Extremely Bearish","bear"]:s<=-2?["Bearish","bear"]:s<2?["Neutral","neu"]:["Bullish","bull"];
+const $=id=>document.getElementById(id);
+const fmt=v=>v.toLocaleString("en-IN");
+function spark(a){const p=a.spark,mn=Math.min(...p),mx=Math.max(...p),rg=(mx-mn)||1;
+ const col=a.score>=2?"var(--bull)":a.score<=-2?"var(--bear)":"var(--neu)";
+ return `<svg class="sp" viewBox="0 0 230 36" preserveAspectRatio="none"><polyline fill="none" stroke="${col}" stroke-width="2" points="${p.map((v,k)=>(k*230/(p.length-1)).toFixed(1)+","+(34-(v-mn)/rg*32).toFixed(1)).join(" ")}"/></svg>`}
+function market(upd){const ist=new Date(new Date().toLocaleString("en-US",{timeZone:"Asia/Kolkata"})),m=ist.getHours()*60+ist.getMinutes(),wd=ist.getDay(),open=wd>0&&wd<6&&m>=555&&m<=930;
+ const b=$("mk");b.textContent=open?"Market Open":"Market Closed";b.className="badge "+(open?"open":"closed");
+ $("up").textContent="Updated: "+new Date(upd).toLocaleString("en-IN",{timeZone:"Asia/Kolkata",day:"numeric",month:"short",hour:"2-digit",minute:"2-digit"})+" IST"}
+function render(D){
+ market(D.updated);const g=$("grid"),det=$("detail");g.innerHTML="";
+ D.assets.forEach(a=>{const[l,c]=lab(a.score),b=document.createElement("button");b.className="c "+c;
+  b.innerHTML=`<small>${a.name}</small><div class="sc">${a.score>0?"+":""}${a.score.toFixed(1)}</div><div class="lb">${l}</div>${spark(a)}<div class="hint">${fmt(a.price)} (${a.chg>0?"+":""}${a.chg}%)</div>`;
+  b.onclick=()=>{det.className="";det.innerHTML=`<h3>${a.name}: ${l}</h3><div class="row"><span>Price</span><span>${fmt(a.price)}</span></div><div class="row"><span>Aaj ka change</span><span>${a.chg}%</span></div><div class="row"><span>RSI (14)</span><span>${a.rsi}</span></div><div class="row"><span>Price vs DMA</span><span>${a.dma}</span></div><div class="row"><span>MACD</span><span>${a.macd}</span></div>`;det.scrollIntoView({behavior:"smooth",block:"nearest"})};
+  g.appendChild(b)});
+ const avg=D.assets.reduce((t,a)=>t+a.score,0)/D.assets.length;
+ $("moodT").textContent="Overall mood: "+lab(avg)[0]+" ("+avg.toFixed(1)+")";
+ $("pin").style.left=Math.max(3,Math.min(97,(avg+10)*5))+"%";
+ const f=v=>v==null?"<td>-</td>":`<td class="${v>=0?"p":"n"}">${v>0?"+":""}${fmt(v)}</td>`;
+ $("fii").innerHTML=D.fii.length?D.fii.map(r=>`<tr><td>${r.date}</td>${f(r.fii)}${f(r.dii)}</tr>`).join(""):"<tr><td colspan=3>FII/DII data abhi available nahi hai</td></tr>";
+ $("wl").innerHTML=D.watch.map(r=>`<tr><td>${r.name}</td><td>${fmt(r.price)}</td>${f(r.chg).replace("</td>","%</td>")}</tr>`).join("")}
+const T=[["Sentiment","v-sent"],["FII/DII","v-fii"],["Watchlist","v-watch"]],nav=$("tabs");
+T.forEach((t,i)=>{const b=document.createElement("button");b.textContent=t[0];if(!i)b.className="on";
+ b.onclick=()=>{[...nav.children].forEach(x=>x.className="");b.className="on";T.forEach(x=>$(x[1]).className=x[1]===t[1]?"":"hide")};nav.appendChild(b)});
+function load(){fetch("data.json?t="+Date.now()).then(r=>r.json()).then(render).catch(()=>{$("up").textContent="data.json load nahi hua"})}
+load();setInterval(load,300000);
+</script>
+</body>
+</html>
