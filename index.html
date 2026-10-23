@@ -45,6 +45,14 @@ th:first-child,td:first-child{text-align:left}
 th{color:var(--mut);font-size:12px}
 .p{color:var(--bull)}.n{color:var(--bear)}
 .note{font-size:12px;color:var(--mut);margin-top:16px;line-height:1.5}
+.tick{overflow:hidden;white-space:nowrap;background:var(--card);border:1px solid var(--line);border-radius:10px;margin-top:8px;padding:8px 0;font-size:13px;font-weight:600}
+.tk{display:inline-block;animation:tk 50s linear infinite}
+.tk span{margin-right:24px}
+@keyframes tk{to{transform:translateX(-50%)}}
+h4{margin:14px 0 8px;font-size:14px;color:var(--mut)}
+.nw{display:block;background:var(--card);border:1px solid var(--line);border-radius:12px;padding:12px;margin-bottom:8px;color:var(--tx);text-decoration:none}
+.nw b{font-size:14px;line-height:1.4;font-weight:600}
+.nw small{display:block;margin-top:6px;color:var(--mut);font-size:11px}
 .hide{display:none}
 </style>
 </head>
@@ -53,6 +61,7 @@ th{color:var(--mut);font-size:12px}
   <h1>God’s <span>Eye</span></h1>
   <div class="sub"><span id="mk" class="badge"></span><span id="up"></span></div>
 </header>
+<div class="tick"><div class="tk" id="tk"></div></div>
 <nav id="tabs"></nav>
 
 <section id="v-sent">
@@ -60,6 +69,15 @@ th{color:var(--mut);font-size:12px}
   <div class="grid" id="grid"></div>
   <div id="detail" class="hide"></div>
 </section>
+
+<section id="v-mov" class="hide">
+  <h4>📈 Top Gainers (Nifty 50)</h4>
+  <table><thead><tr><th>Stock</th><th>Price</th><th>Change</th></tr></thead><tbody id="gn"></tbody></table>
+  <h4>📉 Top Losers (Nifty 50)</h4>
+  <table><thead><tr><th>Stock</th><th>Price</th><th>Change</th></tr></thead><tbody id="ls"></tbody></table>
+</section>
+
+<section id="v-news" class="hide"><div id="nw"></div></section>
 
 <section id="v-fii" class="hide">
   <table><thead><tr><th>Date</th><th>FII (₹ Cr)</th><th>DII (₹ Cr)</th></tr></thead><tbody id="fii"></tbody></table>
@@ -75,6 +93,8 @@ th{color:var(--mut);font-size:12px}
 const lab=s=>s<=-5?["Extremely Bearish","bear"]:s<=-2?["Bearish","bear"]:s<2?["Neutral","neu"]:["Bullish","bull"];
 const $=id=>document.getElementById(id);
 const fmt=v=>v.toLocaleString("en-IN");
+const esc=s=>String(s).replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
+function ago(t){const d=new Date(t);if(isNaN(d))return"";const m=(Date.now()-d)/60000;return m<60?Math.max(1,Math.round(m))+" min pehle":m<1440?Math.round(m/60)+" ghante pehle":Math.round(m/1440)+" din pehle"}
 function spark(a){const p=a.spark,mn=Math.min(...p),mx=Math.max(...p),rg=(mx-mn)||1;
  const col=a.score>=2?"var(--bull)":a.score<=-2?"var(--bear)":"var(--neu)";
  return `<svg class="sp" viewBox="0 0 230 36" preserveAspectRatio="none"><polyline fill="none" stroke="${col}" stroke-width="2" points="${p.map((v,k)=>(k*230/(p.length-1)).toFixed(1)+","+(34-(v-mn)/rg*32).toFixed(1)).join(" ")}"/></svg>`}
@@ -82,6 +102,13 @@ function market(upd){const ist=new Date(new Date().toLocaleString("en-US",{timeZ
  const b=$("mk");b.textContent=open?"Market Open":"Market Closed";b.className="badge "+(open?"open":"closed");
  $("up").textContent="Updated: "+new Date(upd).toLocaleString("en-IN",{timeZone:"Asia/Kolkata",day:"numeric",month:"short",hour:"2-digit",minute:"2-digit"})+" IST"}
 function render(D){
+ const all=[...D.assets,...(D.watch||[])];
+ const tk=all.map(a=>`<span>${a.name} ${fmt(a.price)} <i class="${a.chg>=0?"p":"n"}" style="font-style:normal">${a.chg>0?"+":""}${a.chg}%</i></span>`).join("");
+ $("tk").innerHTML=tk+tk;
+ const M=D.movers||{gainers:[],losers:[]},mr=r=>`<tr><td>${r.name}</td><td>${fmt(r.price)}</td><td class="${r.chg>=0?"p":"n"}">${r.chg>0?"+":""}${r.chg}%</td></tr>`;
+ $("gn").innerHTML=M.gainers.map(mr).join("")||"<tr><td colspan=3>Data abhi available nahi hai</td></tr>";
+ $("ls").innerHTML=M.losers.map(mr).join("")||"<tr><td colspan=3>Data abhi available nahi hai</td></tr>";
+ $("nw").innerHTML=(D.news||[]).map(n=>`<a class="nw" href="${esc(n.link)}" target="_blank" rel="noopener"><b>${esc(n.title)}</b><small>${esc(n.src)} · ${ago(n.time)}</small></a>`).join("")||"<p class=note>News abhi available nahi hai</p>";
  market(D.updated);const g=$("grid"),det=$("detail");g.innerHTML="";
  D.assets.forEach(a=>{const[l,c]=lab(a.score),b=document.createElement("button");b.className="c "+c;
   b.innerHTML=`<small>${a.name}</small><div class="sc">${a.score>0?"+":""}${a.score.toFixed(1)}</div><div class="lb">${l}</div>${spark(a)}<div class="hint">${fmt(a.price)} (${a.chg>0?"+":""}${a.chg}%)</div>`;
@@ -93,7 +120,7 @@ function render(D){
  const f=v=>v==null?"<td>-</td>":`<td class="${v>=0?"p":"n"}">${v>0?"+":""}${fmt(v)}</td>`;
  $("fii").innerHTML=D.fii.length?D.fii.map(r=>`<tr><td>${r.date}</td>${f(r.fii)}${f(r.dii)}</tr>`).join(""):"<tr><td colspan=3>FII/DII data abhi available nahi hai</td></tr>";
  $("wl").innerHTML=D.watch.map(r=>`<tr><td>${r.name}</td><td>${fmt(r.price)}</td>${f(r.chg).replace("</td>","%</td>")}</tr>`).join("")}
-const T=[["Sentiment","v-sent"],["FII/DII","v-fii"],["Watchlist","v-watch"]],nav=$("tabs");
+const T=[["Sentiment","v-sent"],["Movers","v-mov"],["News","v-news"],["FII/DII","v-fii"],["Watchlist","v-watch"]],nav=$("tabs");
 T.forEach((t,i)=>{const b=document.createElement("button");b.textContent=t[0];if(!i)b.className="on";
  b.onclick=()=>{[...nav.children].forEach(x=>x.className="");b.className="on";T.forEach(x=>$(x[1]).className=x[1]===t[1]?"":"hide")};nav.appendChild(b)});
 function load(){fetch("data.json?t="+Date.now()).then(r=>r.json()).then(render).catch(()=>{$("up").textContent="data.json load nahi hua"})}

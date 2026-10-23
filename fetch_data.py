@@ -1,4 +1,5 @@
 import json, datetime as dt
+import xml.etree.ElementTree as ET
 import pandas as pd, requests, yfinance as yf
 
 ASSETS = {"NIFTY":"^NSEI","SENSEX":"^BSESN","BANKNIFTY":"^NSEBANK","GOLD":"GC=F",
@@ -54,7 +55,56 @@ def fii_dii():
     except Exception as e:
         print("fii/dii fail", e); return []
 
-data = {"updated": dt.datetime.now(dt.timezone.utc).isoformat(), "assets": [], "watch": [], "fii": fii_dii()}
+NIFTY = ("RELIANCE TCS HDFCBANK ICICIBANK INFY BHARTIARTL ITC SBIN LT HINDUNILVR KOTAKBANK AXISBANK "
+         "BAJFINANCE MARUTI SUNPHARMA TITAN ONGC NTPC POWERGRID ULTRACEMCO ASIANPAINT WIPRO HCLTECH M&M "
+         "TATAMOTORS TATASTEEL JSWSTEEL ADANIENT ADANIPORTS COALINDIA BAJAJFINSV NESTLEIND TECHM GRASIM "
+         "HINDALCO DRREDDY CIPLA EICHERMOT BPCL APOLLOHOSP BRITANNIA HEROMOTOCO INDUSINDBK SBILIFE "
+         "HDFCLIFE TRENT BEL SHRIRAMFIN HAL BAJAJ-AUTO").split()
+
+def movers():
+    syms = [s + ".NS" for s in NIFTY]
+    try:
+        df = yf.download(syms, period="7d", interval="1d", group_by="ticker",
+                         progress=False, auto_adjust=True, threads=True)
+    except Exception as e:
+        print("movers fail", e); return {"gainers": [], "losers": []}
+    rows = []
+    for s in syms:
+        try:
+            c = df[s]["Close"].dropna()
+            if len(c) < 2: continue
+            rows.append({"name": s[:-3], "price": round(float(c.iloc[-1]), 2),
+                         "chg": round((float(c.iloc[-1]) / float(c.iloc[-2]) - 1) * 100, 2)})
+        except Exception:
+            continue
+    rows.sort(key=lambda r: r["chg"], reverse=True)
+    return {"gainers": rows[:5], "losers": rows[-5:][::-1]}
+
+FEEDS = [("Economic Times", "https://economictimes.indiatimes.com/markets/rssfeeds/1977021501.cms"),
+         ("Google News", "https://news.google.com/rss/search?q=stock+market+India+when:1d&hl=en-IN&gl=IN&ceid=IN:en"),
+         ("Google News Hindi", "https://news.google.com/rss/search?q=शेयर+बाजार+when:1d&hl=hi&gl=IN&ceid=IN:hi")]
+
+def news():
+    out, seen = [], set()
+    for src, url in FEEDS:
+        try:
+            r = requests.get(url, headers={"User-Agent": "Mozilla/5.0"}, timeout=15)
+            root = ET.fromstring(r.content)
+            n = 0
+            for it in root.iter("item"):
+                t = (it.findtext("title") or "").strip()
+                l = (it.findtext("link") or "").strip()
+                if not t or t in seen: continue
+                seen.add(t)
+                out.append({"title": t, "link": l, "src": src, "time": it.findtext("pubDate") or ""})
+                n += 1
+                if n >= 7: break
+        except Exception as e:
+            print("news fail", src, e)
+    return out
+
+data = {"updated": dt.datetime.now(dt.timezone.utc).isoformat(), "assets": [], "watch": [], "fii": fii_dii(),
+        "movers": movers(), "news": news()}
 for n, s in ASSETS.items():
     a = get(s)
     if a: data["assets"].append({"name": n, **a})
