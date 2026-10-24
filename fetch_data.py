@@ -342,7 +342,7 @@ def first_ok(cands):
     return None
 # Smallcap/Midcap ke Yahoo symbols pakke confirm nahi hain, isliye kuch try hote hain
 SMALL = first_ok([("^CNXSC", "NIFTY SMALLCAP 100"), ("NIFTYSMLCAP250.NS", "NIFTY SMALLCAP 250")])
-MID = first_ok([("NIFTY_MIDCAP_100.NS", "NIFTY MIDCAP 100"), ("NIFTYMIDCAP150.NS", "NIFTY MIDCAP 150"), ("^NSEMDCP50", "NIFTY MIDCAP 50")])
+MID = first_ok([("NIFTY_MID_SELECT.NS", "NIFTY MIDCAP SELECT")])   # ~13000 wala index
 data["assets"].insert(1, SMALL or {"name": "NIFTY SMALLCAP", "na": True})
 data["assets"].insert(2, MID or {"name": "NIFTY MIDCAP", "na": True})
 sc = scan500()
