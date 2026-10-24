@@ -6,9 +6,8 @@
 <title>God’s Eye – Market Observer</title>
 <style>
 :root{box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px);
---bg:#0b1020;--card:#141b30;--line:#26304d;--tx:#e8ecf8;--mut:#8d98b8;--bull:#27d38a;--bear:#ff5470;--neu:#9aa6c8;--acc:#7c8cff}
-@media (prefers-color-scheme:light){:root:not([data-theme="dark"]){--bg:#eef1fa;--card:#fff;--line:#d5dbee;--tx:#141b30;--mut:#5b6685;--bull:#0f9d62;--bear:#d6304d;--neu:#66708f}}
-html{scroll-padding-top:env(safe-area-inset-top,0px);color-scheme:dark light}
+--bg:#000;--card:#0d0e12;--line:#23262f;--tx:#f2f3f7;--mut:#8b90a0;--bull:#1fe07a;--bear:#ff4560;--neu:#9aa0b3;--acc:#3b82f6}
+html{scroll-padding-top:env(safe-area-inset-top,0px);color-scheme:dark}
 *{box-sizing:border-box}
 body{margin:0;background:var(--bg);color:var(--tx);font-family:"Noto Sans Devanagari","Segoe UI",system-ui,sans-serif;max-width:720px;margin-inline:auto;padding:0 14px 40px}
 header{padding:14px 0 6px}
@@ -35,8 +34,8 @@ nav button.on{color:#fff;background:var(--acc);border-color:var(--acc)}
 .lb{font-size:12px;font-weight:700}
 svg.sp{width:100%;height:36px;margin-top:6px;display:block}
 .hint{font-size:11px;color:var(--mut);margin-top:4px}
-#detail{background:var(--card);border:1px solid var(--line);border-radius:16px;padding:14px;margin-top:12px}
-#detail h3{margin:0 0 8px}
+#detail,#sdetail{background:var(--card);border:1px solid var(--line);border-radius:16px;padding:14px;margin-top:12px}
+#detail h3,#sdetail h3{margin:0 0 8px}
 .row{display:flex;justify-content:space-between;padding:8px 0;border-top:1px solid var(--line);font-size:14px}
 .row span:first-child{color:var(--mut)}
 table{width:100%;border-collapse:collapse;font-size:14px;background:var(--card);border-radius:14px;overflow:hidden}
@@ -53,6 +52,10 @@ h4{margin:14px 0 8px;font-size:14px;color:var(--mut)}
 .nw{display:block;background:var(--card);border:1px solid var(--line);border-radius:12px;padding:12px;margin-bottom:8px;color:var(--tx);text-decoration:none}
 .nw b{font-size:14px;line-height:1.4;font-weight:600}
 .nw small{display:block;margin-top:6px;color:var(--mut);font-size:11px}
+.chip{display:inline-block;padding:6px 10px;margin:0 6px 6px 0;border-radius:10px;border:1px solid var(--line);font-size:12px;font-weight:700;color:var(--mut)}
+.chip.bull{color:var(--bull);border-color:var(--bull)}.chip.bear{color:var(--bear);border-color:var(--bear)}
+.r2{display:flex;justify-content:space-between;gap:8px}
+table.w th,table.w td{padding:8px 5px;font-size:12px}
 .hide{display:none}
 </style>
 </head>
@@ -70,10 +73,40 @@ h4{margin:14px 0 8px;font-size:14px;color:var(--mut)}
   <div id="detail" class="hide"></div>
 </section>
 
+<section id="v-sec" class="hide">
+  <div class="grid" id="sgrid"></div>
+  <div id="sdetail" class="hide"></div>
+</section>
+
+<section id="v-stk" class="hide">
+  <h4 id="bh"></h4>
+  <table><thead><tr><th>Stock</th><th>Price</th><th>Change</th><th>Score</th></tr></thead><tbody id="bl"></tbody></table>
+  <h4 id="rh"></h4>
+  <table><thead><tr><th>Stock</th><th>Price</th><th>Change</th><th>Score</th></tr></thead><tbody id="br"></tbody></table>
+</section>
+
+<section id="v-ohl" class="hide">
+  <p class="note" id="ohn"></p>
+  <h4 id="olh"></h4>
+  <table class="w"><thead><tr><th>Stock</th><th>Open</th><th>Low</th><th>Price</th><th>Chg</th></tr></thead><tbody id="ol"></tbody></table>
+  <h4 id="ohh"></h4>
+  <table class="w"><thead><tr><th>Stock</th><th>Open</th><th>High</th><th>Price</th><th>Chg</th></tr></thead><tbody id="oh"></tbody></table>
+</section>
+
+<section id="v-fno" class="hide">
+  <p class="note" id="fn0"></p>
+  <h4>Sector sentiment (news)</h4><div id="fs"></div>
+  <h4>Stock news sentiment</h4><div id="fl"></div>
+</section>
+
+<section id="v-range" class="hide"><div class="mood" id="rg"></div></section>
+
+<section id="v-glob" class="hide"><div class="mood"><b id="gm"></b></div><div class="grid" id="gg"></div></section>
+
 <section id="v-mov" class="hide">
-  <h4>📈 Top Gainers (Nifty 50)</h4>
+  <h4>Top Gainers (Nifty 50)</h4>
   <table><thead><tr><th>Stock</th><th>Price</th><th>Change</th></tr></thead><tbody id="gn"></tbody></table>
-  <h4>📉 Top Losers (Nifty 50)</h4>
+  <h4>Top Losers (Nifty 50)</h4>
   <table><thead><tr><th>Stock</th><th>Price</th><th>Change</th></tr></thead><tbody id="ls"></tbody></table>
 </section>
 
@@ -90,7 +123,7 @@ h4{margin:14px 0 8px;font-size:14px;color:var(--mut)}
 <p class="note">Data Yahoo Finance se, 15 min tak delayed ho sakta hai. All information is for educational purposes only. Ye investment advice nahi hai.</p>
 
 <script>
-const lab=s=>s<=-5?["Extremely Bearish","bear"]:s<=-2?["Bearish","bear"]:s<2?["Neutral","neu"]:["Bullish","bull"];
+const lab=s=>s>=5?["Extremely Bullish","bull"]:s<=-5?["Extremely Bearish","bear"]:s<=-2?["Bearish","bear"]:s<2?["Neutral","neu"]:["Bullish","bull"];
 const $=id=>document.getElementById(id);
 const fmt=v=>v.toLocaleString("en-IN");
 const esc=s=>String(s).replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
@@ -102,7 +135,30 @@ function market(upd){const ist=new Date(new Date().toLocaleString("en-US",{timeZ
  const b=$("mk");b.textContent=open?"Market Open":"Market Closed";b.className="badge "+(open?"open":"closed");
  $("up").textContent="Updated: "+new Date(upd).toLocaleString("en-IN",{timeZone:"Asia/Kolkata",day:"numeric",month:"short",hour:"2-digit",minute:"2-digit"})+" IST"}
 function render(D){
- const all=[...D.assets,...(D.watch||[])];
+ const O=D.ohl||{low:[],high:[],scanned:0,src:"nifty50"};
+ const orow=k=>r=>`<tr><td>${r.name}</td><td>${fmt(r.open)}</td><td>${fmt(r[k])}</td><td>${fmt(r.price)}</td><td class="${r.chg>=0?"p":"n"}">${r.chg>0?"+":""}${r.chg}%</td></tr>`,e5="<tr><td colspan=5>Koi stock nahi</td></tr>";
+ $("ohn").textContent="Scanned: "+O.scanned+" stocks ("+(O.src==="nifty500"?"Nifty 500":"sirf Nifty 50, Nifty 500 list load nahi hui")+"). Open=Low: open ke baad price niche nahi gaya (bullish). Open=High: upar nahi gaya (bearish).";
+ $("olh").textContent="Open = Low, bullish ("+O.low.length+")";$("ohh").textContent="Open = High, bearish ("+O.high.length+")";
+ $("ol").innerHTML=O.low.map(orow("low")).join("")||e5;$("oh").innerHTML=O.high.map(orow("high")).join("")||e5;
+ const R=D.range;
+ $("rg").innerHTML=R?`<b>NIFTY</b> <span style="color:var(--mut);font-size:12px">(VIX ${R.vix})</span><div class="sc" style="color:var(--acc)">± ${R.pts} points <small>(±${R.pct}%)</small></div><div class="row"><span>Low</span><span>${fmt(R.low)}</span></div><div class="row"><span>Last</span><span>${fmt(R.close)}</span></div><div class="row"><span>High</span><span>${fmt(R.high)}</span></div><p class="note">68% probability range, India VIX se nikala gaya (VIX ÷ √252).</p>`:"<p class=note>Data abhi available nahi hai</p>";
+ const GL=D.global||{items:[],mood:"-"};
+ $("gm").textContent="Global cues: "+GL.mood;
+ $("gg").innerHTML=GL.items.map(i=>`<div class="c ${i.chg>=0?"bull":"bear"}"><small>${i.name}</small><div class="sc" style="font-size:22px">${fmt(i.price)}</div><div class="lb">${i.chg>0?"+":""}${i.chg}%</div></div>`).join("");
+ const F=D.fno||{rows:[],sectors:[],headlines:0,stocks:0,notable:0},cl=s=>s>=3?"bull":s<=-3?"bear":"";
+ $("fn0").textContent=F.headlines+" headlines, "+F.stocks+" stocks scan hue, "+F.notable+" stocks par khaas news. Sentiment keyword se nikala gaya hai, ye sirf andaza hai.";
+ $("fs").innerHTML=F.sectors.map(s=>`<span class="chip ${cl(s.score)}">${s.name} ${s.score>0?"+":""}${s.score}</span>`).join("");
+ $("fl").innerHTML=F.rows.map(r=>`<a class="nw" href="${esc(r.link)}" target="_blank" rel="noopener"><div class="r2"><b>${esc(r.name)}</b><span class="${r.score>=3?"p":r.score<=-3?"n":""}">${r.score>0?"+":""}${r.score} ${r.score>=3?"BULLISH":r.score<=-3?"BEARISH":"NEUTRAL"}</span></div><div style="margin-top:6px;font-size:13px">${esc(r.src)}: ${esc(r.title)}</div><small>${ago(r.time)}</small></a>`).join("")||"<p class=note>Abhi koi khaas news nahi mili</p>";
+ const sg=$("sgrid");sg.innerHTML="";
+ (D.sectors||[]).forEach(a=>{const[l,c]=lab(a.score),b=document.createElement("button");b.className="c "+c;
+  b.innerHTML=`<small>${a.name}</small><div class="sc">${a.score>0?"+":""}${a.score.toFixed(1)}</div><div class="lb">${l}</div>${spark(a)}<div class="hint">${fmt(a.price)} (${a.chg>0?"+":""}${a.chg}%)</div>`;
+  b.onclick=()=>{const sd=$("sdetail");sd.className="";sd.innerHTML=`<h3>${a.name}: ${l}</h3><table><thead><tr><th>Stock</th><th>Price</th><th>Score</th></tr></thead><tbody>${a.stocks.map(s=>{const[sl,sc]=lab(s.score);return `<tr><td>${s.name}</td><td>${fmt(s.price)}</td><td class="${sc==="bull"?"p":sc==="bear"?"n":""}">${s.score>0?"+":""}${s.score} ${sl}</td></tr>`}).join("")}</tbody></table>`;sd.scrollIntoView({behavior:"smooth",block:"nearest"})};
+  sg.appendChild(b)});
+ const K=D.stocks||[],bu=K.filter(s=>s.score>=2).sort((x,y)=>y.score-x.score),be=K.filter(s=>s.score<=-2).sort((x,y)=>x.score-y.score);
+ const kr=s=>`<tr><td>${s.name}</td><td>${fmt(s.price)}</td><td class="${s.chg>=0?"p":"n"}">${s.chg>0?"+":""}${s.chg}%</td><td class="${s.score>=0?"p":"n"}">${s.score>0?"+":""}${s.score}</td></tr>`,none="<tr><td colspan=4>Koi stock nahi</td></tr>";
+ $("bh").textContent="Bullish stocks ("+bu.length+")";$("rh").textContent="Bearish stocks ("+be.length+")";
+ $("bl").innerHTML=bu.map(kr).join("")||none;$("br").innerHTML=be.map(kr).join("")||none;
+ const all=[...D.assets.filter(a=>!a.na),...(D.watch||[])];
  const tk=all.map(a=>`<span>${a.name} ${fmt(a.price)} <i class="${a.chg>=0?"p":"n"}" style="font-style:normal">${a.chg>0?"+":""}${a.chg}%</i></span>`).join("");
  $("tk").innerHTML=tk+tk;
  const M=D.movers||{gainers:[],losers:[]},mr=r=>`<tr><td>${r.name}</td><td>${fmt(r.price)}</td><td class="${r.chg>=0?"p":"n"}">${r.chg>0?"+":""}${r.chg}%</td></tr>`;
@@ -110,17 +166,17 @@ function render(D){
  $("ls").innerHTML=M.losers.map(mr).join("")||"<tr><td colspan=3>Data abhi available nahi hai</td></tr>";
  $("nw").innerHTML=(D.news||[]).map(n=>`<a class="nw" href="${esc(n.link)}" target="_blank" rel="noopener"><b>${esc(n.title)}</b><small>${esc(n.src)} · ${ago(n.time)}</small></a>`).join("")||"<p class=note>News abhi available nahi hai</p>";
  market(D.updated);const g=$("grid"),det=$("detail");g.innerHTML="";
- D.assets.forEach(a=>{const[l,c]=lab(a.score),b=document.createElement("button");b.className="c "+c;
+ D.assets.forEach(a=>{if(a.na){const b=document.createElement("button");b.className="c neu";b.innerHTML=`<small>${a.name}</small><div class="sc">N/A</div><div class="lb">Source nahi mila</div><div class="hint">Free data source available nahi</div>`;g.appendChild(b);return}const[l,c]=lab(a.score),b=document.createElement("button");b.className="c "+c;
   b.innerHTML=`<small>${a.name}</small><div class="sc">${a.score>0?"+":""}${a.score.toFixed(1)}</div><div class="lb">${l}</div>${spark(a)}<div class="hint">${fmt(a.price)} (${a.chg>0?"+":""}${a.chg}%)</div>`;
   b.onclick=()=>{det.className="";det.innerHTML=`<h3>${a.name}: ${l}</h3><div class="row"><span>Price</span><span>${fmt(a.price)}</span></div><div class="row"><span>Aaj ka change</span><span>${a.chg}%</span></div><div class="row"><span>RSI (14)</span><span>${a.rsi}</span></div><div class="row"><span>Price vs DMA</span><span>${a.dma}</span></div><div class="row"><span>MACD</span><span>${a.macd}</span></div>`;det.scrollIntoView({behavior:"smooth",block:"nearest"})};
   g.appendChild(b)});
- const avg=D.assets.reduce((t,a)=>t+a.score,0)/D.assets.length;
+ const A=D.assets.filter(a=>!a.na),avg=A.reduce((t,a)=>t+a.score,0)/A.length;
  $("moodT").textContent="Overall mood: "+lab(avg)[0]+" ("+avg.toFixed(1)+")";
  $("pin").style.left=Math.max(3,Math.min(97,(avg+10)*5))+"%";
  const f=v=>v==null?"<td>-</td>":`<td class="${v>=0?"p":"n"}">${v>0?"+":""}${fmt(v)}</td>`;
  $("fii").innerHTML=D.fii.length?D.fii.map(r=>`<tr><td>${r.date}</td>${f(r.fii)}${f(r.dii)}</tr>`).join(""):"<tr><td colspan=3>FII/DII data abhi available nahi hai</td></tr>";
  $("wl").innerHTML=D.watch.map(r=>`<tr><td>${r.name}</td><td>${fmt(r.price)}</td>${f(r.chg).replace("</td>","%</td>")}</tr>`).join("")}
-const T=[["Sentiment","v-sent"],["Movers","v-mov"],["News","v-news"],["FII/DII","v-fii"],["Watchlist","v-watch"]],nav=$("tabs");
+const T=[["Sentiment","v-sent"],["Sectors","v-sec"],["Stocks","v-stk"],["Open H/L","v-ohl"],["F&O Watch","v-fno"],["Range","v-range"],["Global","v-glob"],["Movers","v-mov"],["News","v-news"],["FII/DII","v-fii"],["Watchlist","v-watch"]],nav=$("tabs");
 T.forEach((t,i)=>{const b=document.createElement("button");b.textContent=t[0];if(!i)b.className="on";
  b.onclick=()=>{[...nav.children].forEach(x=>x.className="");b.className="on";T.forEach(x=>$(x[1]).className=x[1]===t[1]?"":"hide")};nav.appendChild(b)});
 function load(){fetch("data.json?t="+Date.now()).then(r=>r.json()).then(render).catch(()=>{$("up").textContent="data.json load nahi hua"})}
