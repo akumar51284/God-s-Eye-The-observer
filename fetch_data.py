@@ -344,6 +344,9 @@ def first_ok(cands):
 SMALL = first_ok([("^CNXSC", "NIFTY SMALLCAP 100"), ("NIFTYSMLCAP250.NS", "NIFTY SMALLCAP 250")])
 MID = None   # Midcap card hata diya
 data["assets"].insert(1, SMALL or {"name": "NIFTY SMALLCAP", "na": True})
+VIX = get("^INDIAVIX")
+data["assets"].insert(2, {"name": "INDIA VIX", "vix": True, "price": VIX["price"], "chg": VIX["chg"], "spark": VIX["spark"]}
+                      if VIX else {"name": "INDIA VIX", "na": True})
 sc = scan500()
 data["ohl"] = {k: sc[k] for k in ("src", "scanned", "low", "high")}
 data["brk"] = sc["brk"]; data["scan"] = sc["scan"]
