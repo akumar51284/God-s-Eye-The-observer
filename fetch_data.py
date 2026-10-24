@@ -5,7 +5,7 @@ from urllib.parse import quote_plus
 import pandas as pd, requests, yfinance as yf
 
 ASSETS = {"NIFTY":"^NSEI","SENSEX":"^BSESN","BANKNIFTY":"^NSEBANK","GOLD":"GC=F",
-          "SILVER":"SI=F","CRUDEOIL":"CL=F","NASDAQ":"^IXIC"}
+          "SILVER":"SI=F","CRUDEOIL":"CL=F","NASDAQ":"^IXIC","DOW JONES":"^DJI"}
 WATCH = {"RELIANCE":"RELIANCE.NS","TCS":"TCS.NS","HDFCBANK":"HDFCBANK.NS",
          "INFY":"INFY.NS","HAL":"HAL.NS"}   # apne stocks yahan badlo
 
@@ -116,8 +116,6 @@ def news():
     return out
 
 UA = {"User-Agent": "Mozilla/5.0"}
-# GIFT Nifty ka koi pakka free Yahoo symbol nahi mila. Mil jaye to yahan likh do (jaise "XYZ.NS")
-GIFT_SYMBOL = ""
 
 def n500():
     try:
@@ -128,30 +126,52 @@ def n500():
         print("nifty500 list fail", e)
     return NIFTY
 
-def ohl_scan():
+def chunks(l, n): return [l[i:i + n] for i in range(0, len(l), n)]
+
+def scan500():
     syms = n500(); src = "nifty500" if len(syms) > 300 else "nifty50"
-    full = [s + ".NS" for s in syms]; rows = []
-    for i in range(0, len(full), 100):
-        part = full[i:i + 100]
+    full = [s + ".NS" for s in syms]
+    rows, brk, scan = [], [], []
+    adv = dec = a20 = a50 = nd = 0
+    for part in chunks(full, 100):
         try:
-            df = yf.download(part, period="5d", interval="1d", group_by="ticker",
+            df = yf.download(part, period="6mo", interval="1d", group_by="ticker",
                              progress=False, auto_adjust=False, threads=True)
         except Exception as e:
-            print("ohl fail", e); continue
+            print("scan fail", e); continue
         for s in part:
             try:
-                d = df[s][["Open", "High", "Low", "Close"]].dropna()
+                d = df[s][["Open", "High", "Low", "Close", "Volume"]].dropna()
                 if len(d) < 2: continue
-                o, h, l, c = [float(x) for x in d.iloc[-1]]; pc = float(d["Close"].iloc[-2])
-                rows.append({"name": s[:-3], "open": round(o, 2), "high": round(h, 2), "low": round(l, 2),
-                             "price": round(c, 2), "chg": round((c / pc - 1) * 100, 2)})
+                o, h, l, c, v = [float(x) for x in d.iloc[-1]]
+                pc = float(d["Close"].iloc[-2]); chg = round((c / pc - 1) * 100, 2); name = s[:-3]
+                rows.append({"name": name, "open": round(o, 2), "high": round(h, 2), "low": round(l, 2),
+                             "price": round(c, 2), "chg": chg})
+                if chg > 0: adv += 1
+                elif chg < 0: dec += 1
+                if len(d) < 60: continue
+                cl, hi, vo = d["Close"], d["High"], d["Volume"]
+                nd += 1
+                a20 += int(c > float(cl.rolling(20).mean().iloc[-1]))
+                a50 += int(c > float(cl.rolling(50).mean().iloc[-1]))
+                va = float(vo.iloc[-21:-1].mean()); vr = round(v / va, 2) if va > 0 else 0
+                if c > float(hi.iloc[-21:-1].max()):
+                    brk.append({"name": name, "price": round(c, 2), "chg": chg, "vr": vr})
+                # Chartink-type scan: Close crosses above SMA(High,55), Open < Close, RSI(14) crosses above 60
+                sm = hi.rolling(55).mean(); r = rsi(cl)
+                if (c > float(sm.iloc[-1]) and float(cl.iloc[-2]) <= float(sm.iloc[-2]) and o < c
+                        and float(r.iloc[-1]) > 60 and float(r.iloc[-2]) <= 60):
+                    scan.append({"name": name, "price": round(c, 2), "chg": chg,
+                                 "rsi": round(float(r.iloc[-1]), 1), "vr": vr})
             except Exception:
                 continue
     tol = 0.0003
     low = [r for r in rows if r["open"] > 0 and r["high"] > r["low"] and (r["open"] - r["low"]) / r["open"] <= tol]
     high = [r for r in rows if r["open"] > 0 and r["high"] > r["low"] and (r["high"] - r["open"]) / r["open"] <= tol]
     low.sort(key=lambda r: r["chg"], reverse=True); high.sort(key=lambda r: r["chg"])
-    return {"src": src, "scanned": len(rows), "low": low[:40], "high": high[:40]}
+    brk.sort(key=lambda r: r["vr"], reverse=True); scan.sort(key=lambda r: r["rsi"], reverse=True)
+    return {"src": src, "scanned": len(rows), "low": low[:40], "high": high[:40], "brk": brk[:30], "scan": scan[:40],
+            "adv": adv, "dec": dec, "above20": a20, "above50": a50, "nd": nd}
 
 GLOBAL = [("S&P 500", "^GSPC"), ("Dow Jones", "^DJI"), ("Nasdaq", "^IXIC"), ("Nikkei 225", "^N225"),
           ("Hang Seng", "^HSI"), ("Crude WTI", "CL=F"), ("Brent", "BZ=F"), ("USD/INR", "USDINR=X"),
@@ -178,8 +198,10 @@ def day_range():
     n = quote("^NSEI"); v = quote("^INDIAVIX")
     if not n or not v: return None
     pct = v["price"] / math.sqrt(252); pts = n["price"] * pct / 100
+    prev = n["price"] / (1 + n["chg"] / 100)
     return {"vix": v["price"], "close": n["price"], "pts": round(pts, 1), "pct": round(pct, 2),
-            "low": round(n["price"] - pts, 1), "high": round(n["price"] + pts, 1)}
+            "low": round(n["price"] - pts, 1), "high": round(n["price"] + pts, 1),
+            "prev": round(prev, 1), "move": round(n["price"] - prev, 1)}
 
 NAMES = {"M&M": "Mahindra and Mahindra", "LT": "Larsen and Toubro", "BEL": "Bharat Electronics", "HAL": "Hindustan Aeronautics",
  "ITC": "ITC Ltd", "SBIN": "SBI", "TITAN": "Titan Company", "TRENT": "Trent Tata", "GRASIM": "Grasim Industries",
@@ -227,7 +249,65 @@ def fno_watch():
     for name, (idx, lst) in SECTORS.items():
         v = [scores[x] for x in lst.split() if x in scores]
         if v: secs.append({"name": name, "score": round(sum(v) / len(v), 1)})
-    return {"headlines": total, "stocks": len(res), "notable": len(rows), "rows": rows[:25], "sectors": secs}
+    avg = sum(scores.values()) / len(scores) if scores else 0
+    buzz = sorted(({"name": s, "count": sum(1 for x in o if x["h"] != 0)} for s, o in res), key=lambda b: b["count"], reverse=True)
+    return {"headlines": total, "stocks": len(res), "notable": len(rows), "rows": rows[:25], "sectors": secs,
+            "avg": round(avg, 2), "buzz": [b for b in buzz if b["count"] > 0][:6]}
+
+def first15():
+    try:
+        d = yf.Ticker("^NSEI").history(period="1d", interval="5m")
+        d.index = d.index.tz_convert("Asia/Kolkata")
+        w = d[(d.index.hour == 9) & (d.index.minute >= 15) & (d.index.minute < 30)]
+        if len(w) < 3: return None
+        return {"hi": round(float(w["High"].max()), 1), "lo": round(float(w["Low"].min()), 1)}
+    except Exception:
+        return None
+
+def adx_trend():
+    try:
+        d = yf.Ticker("^NSEI").history(period="6mo", interval="1d").dropna()
+        h, l, c = d["High"], d["Low"], d["Close"]
+        up, dn = h.diff(), -l.diff()
+        pdm = up.where((up > dn) & (up > 0), 0.0); ndm = dn.where((dn > up) & (dn > 0), 0.0)
+        tr = pd.concat([h - l, (h - c.shift()).abs(), (l - c.shift()).abs()], axis=1).max(axis=1)
+        a = 1 / 14
+        atr = tr.ewm(alpha=a, adjust=False).mean()
+        pdi = 100 * pdm.ewm(alpha=a, adjust=False).mean() / atr
+        ndi = 100 * ndm.ewm(alpha=a, adjust=False).mean() / atr
+        adx = (100 * (pdi - ndi).abs() / (pdi + ndi)).ewm(alpha=a, adjust=False).mean()
+        v = float(adx.iloc[-1]); last = float(c.iloc[-1])
+        s20 = float(c.rolling(20).mean().iloc[-1]); s50 = float(c.rolling(50).mean().iloc[-1])
+        return {"adx": round(v, 1), "state": "Trending" if v >= 25 else "Sideways" if v < 20 else "Weak trend",
+                "dir": "Uptrend" if last > s20 > s50 else "Downtrend" if last < s20 < s50 else "Mixed",
+                "hi20": round(float(h.tail(20).max()), 1), "lo20": round(float(l.tail(20).min()), 1),
+                "open": round(float(d["Open"].iloc[-1]), 1), "prev": round(float(c.iloc[-2]), 1),
+                "date": d.index[-1].strftime("%d %b"), "f15": first15()}
+    except Exception as e:
+        print("trend fail", e); return None
+
+def retail_mood(sc, rng, small, mid, fno):
+    parts = []
+    def add(name, value, score, note):
+        parts.append({"name": name, "value": value, "score": round(max(0, min(100, score))), "note": note})
+    if rng: add("India VIX", rng["vix"], 100 - (rng["vix"] - 10) / 15 * 100, "VIX kam = befikri, zyada = dar")
+    if sc["adv"] + sc["dec"] > 50:
+        p = sc["adv"] / (sc["adv"] + sc["dec"]) * 100
+        add("Aaj upar wale stocks", f"{p:.0f}%", p, "jitne zyada stocks upar, utna josh")
+    if sc["nd"] > 50:
+        p20 = sc["above20"] / sc["nd"] * 100; p50 = sc["above50"] / sc["nd"] * 100
+        add("20 DMA ke upar stocks", f"{p20:.0f}%", p20, "short term ki taqat")
+        add("50 DMA ke upar stocks", f"{p50:.0f}%", p50, "medium term ki taqat")
+    rets = [(a["spark"][-1] / a["spark"][-6] - 1) * 100 for a in (small, mid) if a and len(a.get("spark", [])) >= 6]
+    if rets:
+        r5 = sum(rets) / len(rets)
+        add("Small/Midcap, 5 din", f"{r5:+.1f}%", 50 + r5 * 10, "chhote stocks mein risk lene ka mood")
+    if fno and fno.get("stocks"):
+        add("News ka tone", f"{fno['avg']:+.1f}", 50 + fno["avg"] * 5, "headlines mein positive ya negative")
+    if not parts: return None
+    s = sum(p["score"] for p in parts) / len(parts)
+    label = "Extreme Fear" if s < 25 else "Fear" if s < 45 else "Neutral" if s < 55 else "Greed" if s < 75 else "Extreme Greed"
+    return {"score": round(s), "label": label, "parts": parts}
 
 nse = lambda n: n + ".NS"
 R = bulk([nse(n) for n in NIFTY] + [nse(n) for _, l in SECTORS.values() for n in l.split()]
@@ -255,8 +335,20 @@ for n, s in ASSETS.items():
 for n, s in WATCH.items():
     a = get(s)
     if a: data["watch"].append({"name": n, **a})
-g = get(GIFT_SYMBOL) if GIFT_SYMBOL else None
-data["assets"].insert(1, {"name": "GIFT NIFTY", **g} if g else {"name": "GIFT NIFTY", "na": True})
-data["ohl"] = ohl_scan(); data["global"] = global_cues(); data["range"] = day_range(); data["fno"] = fno_watch()
+def first_ok(cands):
+    for sym, label in cands:
+        a = get(sym)
+        if a: return {"name": label, **a}
+    return None
+# Smallcap/Midcap ke Yahoo symbols pakke confirm nahi hain, isliye kuch try hote hain
+SMALL = first_ok([("^CNXSC", "NIFTY SMALLCAP 100"), ("NIFTYSMLCAP250.NS", "NIFTY SMALLCAP 250")])
+MID = first_ok([("NIFTY_MIDCAP_100.NS", "NIFTY MIDCAP 100"), ("NIFTYMIDCAP150.NS", "NIFTY MIDCAP 150"), ("^NSEMDCP50", "NIFTY MIDCAP 50")])
+data["assets"].insert(1, SMALL or {"name": "NIFTY SMALLCAP", "na": True})
+data["assets"].insert(2, MID or {"name": "NIFTY MIDCAP", "na": True})
+sc = scan500()
+data["ohl"] = {k: sc[k] for k in ("src", "scanned", "low", "high")}
+data["brk"] = sc["brk"]; data["scan"] = sc["scan"]
+data["global"] = global_cues(); data["range"] = day_range(); data["fno"] = fno_watch(); data["trend"] = adx_trend()
+data["mood"] = retail_mood(sc, data["range"], SMALL, MID, data["fno"])
 json.dump(data, open("data.json", "w"), ensure_ascii=False)
 print("saved", len(data["assets"]), "assets", len(stocks), "stocks", len(sectors), "sectors")

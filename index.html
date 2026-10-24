@@ -56,6 +56,8 @@ h4{margin:14px 0 8px;font-size:14px;color:var(--mut)}
 .chip.bull{color:var(--bull);border-color:var(--bull)}.chip.bear{color:var(--bear);border-color:var(--bear)}
 .r2{display:flex;justify-content:space-between;gap:8px}
 table.w th,table.w td{padding:8px 5px;font-size:12px}
+input,select{background:var(--bg);color:var(--tx);border:1px solid var(--line);border-radius:8px;padding:8px;width:100%;font:inherit;margin:4px 0}
+.mood .row{margin-top:2px}
 .hide{display:none}
 </style>
 </head>
@@ -103,6 +105,51 @@ table.w th,table.w td{padding:8px 5px;font-size:12px}
 
 <section id="v-glob" class="hide"><div class="mood"><b id="gm"></b></div><div class="grid" id="gg"></div></section>
 
+<section id="v-mood" class="hide">
+  <div class="mood"><b id="mdT"></b><div class="bar"><i id="mdPin"></i></div><div><span>Extreme Fear</span><span>Neutral</span><span>Extreme Greed</span></div></div>
+  <h4>Mood kyun aisa hai</h4><div class="mood" id="mdP"></div>
+  <h4>Sabse zyada charcha mein (stocks)</h4><div id="mdB"></div>
+  <h4>Abhi ki badi headlines</h4><div id="mdN"></div>
+  <p class="note">Ye asli retail data nahi hai. Free market data aur news se banaya gaya andaza hai.</p>
+</section>
+
+<section id="v-brk" class="hide">
+  <p class="note">Aaj jo stock pichhle 20 din ke high ke upar gaye, unka volume 20-din ke average se kitna zyada hai. 1.5x ya zyada = Strong, 1x se kam = Weak (fake hone ka khatra). Market chalte waqt volume adhoora hota hai, isliye din ke end par zyada sahi dikhta hai.</p>
+  <table class="w"><thead><tr><th>Stock</th><th>Price</th><th>Volume</th><th>Chg</th></tr></thead><tbody id="bk"></tbody></table>
+</section>
+
+<section id="v-scan" class="hide">
+  <p class="note">Filters: Close, 55-din ke High ke SMA ke upar cross kare. Open Close se kam. RSI(14), 60 ke upar cross kare. Sab daily candle par, Nifty 500 ke stocks mein.</p>
+  <table class="w"><thead><tr><th>Stock</th><th>Close</th><th>RSI</th><th>Vol</th><th>Chg</th></tr></thead><tbody id="scn"></tbody></table>
+</section>
+
+<section id="v-tools" class="hide">
+  <div class="mood" id="ph"></div>
+  <div class="mood" id="trd"></div>
+  <div class="mood" id="spd"></div>
+  <div class="mood"><b>Expiry day</b><select id="exd"></select><p class="note" id="exb"></p></div>
+  <div class="mood"><b>Entry se pehle checklist</b><div id="ck"></div></div>
+  <div class="mood"><b>Risk calculator</b>
+    <input id="rc1" type="number" inputmode="decimal" placeholder="Total capital (₹)">
+    <input id="rc2" type="number" inputmode="decimal" placeholder="Ek trade mein risk (% of capital)">
+    <input id="rc3" type="number" inputmode="decimal" placeholder="Entry premium (₹)">
+    <input id="rc4" type="number" inputmode="decimal" placeholder="Stop loss premium (₹)">
+    <input id="rc5" type="number" inputmode="decimal" placeholder="Lot size (broker se dekho)">
+    <div id="rco"></div>
+    <p class="note">Stop loss pehle tay karo, phir use na hatao na door karo. Ye sirf hisaab hai, salah nahi.</p>
+  </div>
+</section>
+
+<section id="v-delta" class="hide">
+  <div class="mood"><b>Delta kya hai</b>
+    <p class="note" style="font-size:13px">Delta batata hai ki Nifty 1 point badhne ya ghatne par option ka premium lagbhag kitna badlega. Call ka Delta positive (0 se 1) aur Put ka negative (0 se -1) hota hai. ATM option ka Delta lagbhag 0.5 hota hai. Strike ITM ki taraf jaye to Delta badhta hai, premium bhi zyada hota hai aur chaal zyada sureksit rehti hai. OTM mein Delta kam, premium sasta, par risk zyada. Direction sahi ho to ITM ya ATM mein profit jaldi banta hai.</p></div>
+  <div class="mood"><b>Expiry mein kitne din bache?</b><select id="dte"><option value="1">1 din</option><option value="3">3 din</option><option value="7" selected>7 din</option><option value="30">30 din</option></select><p class="note" id="dsp"></p></div>
+  <table class="w"><thead><tr><th>Strike</th><th>Call Δ</th><th>Put Δ</th><th>Call θ/din</th><th>Put θ/din</th></tr></thead><tbody id="dl"></tbody></table>
+  <h4>Theta decay: ATM call ka andaza</h4>
+  <table class="w"><thead><tr><th>Expiry mein</th><th>Premium (andaza)</th></tr></thead><tbody id="dc"></tbody></table>
+  <p class="note">Ye Black-Scholes formula se nikala gaya andaza hai (Nifty spot, India VIX, 6.5% rate). Asli option chain ka data nahi hai, to broker screen se thoda alag hoga. Samajhne ke liye use karo, trade ke liye nahi.</p>
+</section>
+
 <section id="v-mov" class="hide">
   <h4>Top Gainers (Nifty 50)</h4>
   <table><thead><tr><th>Stock</th><th>Price</th><th>Change</th></tr></thead><tbody id="gn"></tbody></table>
@@ -134,7 +181,46 @@ function spark(a){const p=a.spark,mn=Math.min(...p),mx=Math.max(...p),rg=(mx-mn)
 function market(upd){const ist=new Date(new Date().toLocaleString("en-US",{timeZone:"Asia/Kolkata"})),m=ist.getHours()*60+ist.getMinutes(),wd=ist.getDay(),open=wd>0&&wd<6&&m>=555&&m<=930;
  const b=$("mk");b.textContent=open?"Market Open":"Market Closed";b.className="badge "+(open?"open":"closed");
  $("up").textContent="Updated: "+new Date(upd).toLocaleString("en-IN",{timeZone:"Asia/Kolkata",day:"numeric",month:"short",hour:"2-digit",minute:"2-digit"})+" IST"}
+let TR=null,RNG=null;
+const nc=n=>`<a class="nw" href="${esc(n.link)}" target="_blank" rel="noopener"><b>${esc(n.title)}</b><small>${esc(n.src)} · ${ago(n.time)}</small></a>`;
+function N(x){const t=1/(1+0.2316419*Math.abs(x)),d=0.3989423*Math.exp(-x*x/2),p=d*t*(0.3193815+t*(-0.3565638+t*(1.781478+t*(-1.821256+t*1.330274))));return x>0?1-p:p}
+function bs(S,K,T,s,r){const q=s*Math.sqrt(T),d1=(Math.log(S/K)+(r+s*s/2)*T)/q,d2=d1-q,e=Math.exp(-r*T),pdf=Math.exp(-d1*d1/2)/Math.sqrt(2*Math.PI),th=-S*pdf*s/(2*Math.sqrt(T));
+ return{cd:N(d1),pd:N(d1)-1,cp:S*N(d1)-K*e*N(d2),ct:(th-r*K*e*N(d2))/365,pt:(th+r*K*e*N(-d2))/365}}
+const dtype=d=>d>=.8?"Deep ITM":d>=.6?"ITM":d>=.4?"ATM":d>=.2?"OTM":"Far OTM";
+function deltaTab(){const b=$("dl"),c=$("dc");
+ if(!RNG){b.innerHTML="<tr><td colspan=5>Data abhi available nahi hai</td></tr>";c.innerHTML="";return}
+ const S=RNG.close,sg=RNG.vix/100,r=.065,T=(+$("dte").value)/365,atm=Math.round(S/50)*50;let h="";
+ for(let k=-5;k<=5;k++){const K=atm+k*50,o=bs(S,K,T,sg,r);h+=`<tr${k==0?' style="font-weight:700"':''}><td>${K}<br><small style="color:var(--mut)">${dtype(o.cd)}</small></td><td class="p">${o.cd.toFixed(2)}</td><td class="n">${o.pd.toFixed(2)}</td><td>${o.ct.toFixed(1)}</td><td>${o.pt.toFixed(1)}</td></tr>`}
+ b.innerHTML=h;
+ c.innerHTML=[30,15,5,1].map(d=>`<tr><td>${d} din</td><td>₹${bs(S,atm,d/365,sg,r).cp.toFixed(0)}</td></tr>`).join("");
+ $("dsp").textContent="Nifty "+fmt(S)+" | India VIX "+RNG.vix+" | ATM strike "+atm}
+function rc(){const g=i=>parseFloat($(i).value),cap=g("rc1"),rk=g("rc2"),en=g("rc3"),sl=g("rc4"),lot=g("rc5"),o=$("rco");
+ if([cap,rk,en,sl,lot].some(v=>!(v>0))){o.innerHTML='<p class="note">Saari boxes bharo.</p>';return}
+ if(sl>=en){o.innerHTML='<p class="note">Stop loss premium entry se kam hona chahiye.</p>';return}
+ const risk=cap*rk/100,lpl=(en-sl)*lot,lots=Math.floor(risk/lpl),used=lots*en*lot,R=v=>"₹"+fmt(Math.round(v));
+ o.innerHTML=lots<1?`<p class="note">Is stop loss par 1 lot ka loss (${R(lpl)}) tumhari risk limit (${R(risk)}) se zyada hai. Stop loss paas rakho ya risk % badlo.</p>`:`<div class="row"><span>Risk limit</span><span>${R(risk)}</span></div><div class="row"><span>1 lot ka loss (SL par)</span><span>${R(lpl)}</span></div><div class="row"><span>Zyada se zyada lots</span><span>${lots}</span></div><div class="row"><span>SL par total loss</span><span class="n">${R(lots*lpl)}</span></div><div class="row"><span>Premium mein lagne wala paisa</span><span>${R(used)}${used>cap?" (capital se zyada!)":""}</span></div>`}
+function istm(){const i=new Date(new Date().toLocaleString("en-US",{timeZone:"Asia/Kolkata"}));return{m:i.getHours()*60+i.getMinutes(),wd:i.getDay()}}
+function phase(){const{m,wd}=istm();let t;
+ if(wd==0||wd==6)t="Aaj weekend hai, market band.";else if(m<555)t="Market abhi khula nahi. 9:15 par khulega.";else if(m<570)t="Pehle 15 min mein volatility sabse zyada hoti hai. Abhi sirf observe karo, entry mat lo.";else if(m<585)t="Market abhi settle ho raha hai. Trend clear hone ka intezaar karo.";else if(m<=930)t="Shuruaati volatility kam ho chuki hai. Trend, levels aur volume dekhkar apne plan ke hisaab se chalo.";else t="Market band ho chuka hai.";
+ let g="";if(TR&&TR.prev){const gp=(TR.open/TR.prev-1)*100;g=`<div class="row"><span>Gap (${TR.date})</span><span class="${gp>=0?"p":"n"}">${gp>0?"+":""}${gp.toFixed(2)}%</span></div>`;if(TR.f15)g+=`<div class="row"><span>Pehle 15 min ka High / Low</span><span>${fmt(TR.f15.hi)} / ${fmt(TR.f15.lo)}</span></div>`}
+ $("ph").innerHTML=`<b>Market open ke baad kya karein</b><p class="note" style="font-size:13px">${t}</p>${g}`;ck()}
+function exb(){const{wd}=istm(),v=+$("exd").value;$("exb").textContent=v&&v===wd?"Aaj expiry ka din hai. Premium tezi se badalta hai, jaldbaazi mein trade mat lo. Chhote target aur kam risk rakho.":v?"Aaj expiry ka din nahi hai.":"Apne Nifty expiry ka din chuno, us din yahan chetavni dikhegi."}
+function ck(){const{m,wd}=istm(),ok=(a,t)=>`<div style="padding:6px 0">${a?"✅":"⬜"} ${t} <small style="color:var(--mut)">(apne aap)</small></div>`,mn=t=>`<label style="display:block;padding:6px 0"><input type="checkbox" style="width:auto;margin-right:8px">${t}</label>`;
+ $("ck").innerHTML=ok(!!TR&&TR.state==="Trending","Market trending hai, sideways nahi")+ok(wd>0&&wd<6&&m>=585&&m<=930,"9:45 baj chuke hain")+["Stop loss pehle se tay hai","Target tay hai","Breakout par volume normal se zyada hai (Breakout tab dekho)","Candle close ka confirmation mila","Risk meri limit ke andar hai (Risk calculator)"].map(mn).join("")}
 function render(D){
+ RNG=D.range||null;TR=D.trend||null;
+ const MD=D.mood;
+ if(MD){$("mdT").textContent="Retail mood: "+MD.label+" ("+MD.score+"/100)";$("mdPin").style.left=Math.max(3,Math.min(97,MD.score))+"%";
+  $("mdP").innerHTML=MD.parts.map(p=>`<div class="row"><span>${esc(p.name)}<br><small style="color:var(--mut)">${esc(p.note)}</small></span><span class="${p.score>=55?"p":p.score<45?"n":""}">${esc(p.value)}</span></div>`).join("")}
+ else{$("mdT").textContent="Mood ka data abhi available nahi hai";$("mdP").innerHTML=""}
+ $("mdB").innerHTML=((D.fno&&D.fno.buzz)||[]).map(b=>`<span class="chip">${esc(b.name)} (${b.count})</span>`).join("")||"<p class=note>Abhi data nahi</p>";
+ $("mdN").innerHTML=(D.news||[]).slice(0,8).map(nc).join("")||"<p class=note>News abhi available nahi hai</p>";
+ const bw=r=>{const L=r.vr>=1.5?["Strong","p"]:r.vr>=1?["Moderate",""]:["Weak","n"];return`<tr><td>${r.name}</td><td>${fmt(r.price)}</td><td class="${L[1]}">${r.vr}x ${L[0]}</td><td class="${r.chg>=0?"p":"n"}">${r.chg>0?"+":""}${r.chg}%</td></tr>`};
+ $("bk").innerHTML=(D.brk||[]).map(bw).join("")||"<tr><td colspan=4>Aaj koi stock 20-din ke high ke upar nahi mila</td></tr>";
+ $("scn").innerHTML=(D.scan||[]).map(r=>`<tr><td>${r.name}</td><td>${fmt(r.price)}</td><td>${r.rsi}</td><td>${r.vr}x</td><td class="${r.chg>=0?"p":"n"}">${r.chg>0?"+":""}${r.chg}%</td></tr>`).join("")||"<tr><td colspan=5>Abhi koi stock criteria par khara nahi utra</td></tr>";
+ $("trd").innerHTML=TR?`<b>Market: ${TR.state}</b> <span style="color:var(--mut);font-size:12px">(ADX ${TR.adx})</span><div class="row"><span>Direction</span><span>${TR.dir}</span></div><div class="row"><span>Pichhle 20 din ka High / Low</span><span>${fmt(TR.hi20)} / ${fmt(TR.lo20)}</span></div><p class="note">${TR.state==="Sideways"?"Sideways market mein option buying se bacho, time decay se premium ghatta rehta hai.":TR.state==="Trending"?"Trend saaf hai. Direction ke saath aur confirmation ke baad hi entry sochho.":"Trend abhi kamzor hai. Confirmation ka intezaar karo."}</p>`:"<p class=note>Trend ka data abhi available nahi hai</p>";
+ if(RNG&&RNG.pts){const u=Math.abs(RNG.move)/RNG.pts*100;$("spd").innerHTML=`<b>Speed meter</b><div class="row"><span>Aaj ka move</span><span class="${RNG.move>=0?"p":"n"}">${RNG.move>0?"+":""}${RNG.move} pts</span></div><div class="row"><span>Expected range ka hissa</span><span>${u.toFixed(0)}%</span></div><div class="bar" style="background:var(--line)"><i style="left:${Math.min(100,u)}%"></i></div><p class="note">${u<50?"Move abhi normal hai.":u<100?"Tez move chal raha hai. Jaldbaazi aur FOMO se bacho, pehle confirm karo.":"Expected range se bahar nikal chuka hai. Aise mein entry bahut sochkar lo."}</p>`}else $("spd").innerHTML="<b>Speed meter</b><p class=note>Data abhi available nahi hai</p>";
+ deltaTab();phase();exb();
  const O=D.ohl||{low:[],high:[],scanned:0,src:"nifty50"};
  const orow=k=>r=>`<tr><td>${r.name}</td><td>${fmt(r.open)}</td><td>${fmt(r[k])}</td><td>${fmt(r.price)}</td><td class="${r.chg>=0?"p":"n"}">${r.chg>0?"+":""}${r.chg}%</td></tr>`,e5="<tr><td colspan=5>Koi stock nahi</td></tr>";
  $("ohn").textContent="Scanned: "+O.scanned+" stocks ("+(O.src==="nifty500"?"Nifty 500":"sirf Nifty 50, Nifty 500 list load nahi hui")+"). Open=Low: open ke baad price niche nahi gaya (bullish). Open=High: upar nahi gaya (bearish).";
@@ -176,11 +262,16 @@ function render(D){
  const f=v=>v==null?"<td>-</td>":`<td class="${v>=0?"p":"n"}">${v>0?"+":""}${fmt(v)}</td>`;
  $("fii").innerHTML=D.fii.length?D.fii.map(r=>`<tr><td>${r.date}</td>${f(r.fii)}${f(r.dii)}</tr>`).join(""):"<tr><td colspan=3>FII/DII data abhi available nahi hai</td></tr>";
  $("wl").innerHTML=D.watch.map(r=>`<tr><td>${r.name}</td><td>${fmt(r.price)}</td>${f(r.chg).replace("</td>","%</td>")}</tr>`).join("")}
-const T=[["Sentiment","v-sent"],["Sectors","v-sec"],["Stocks","v-stk"],["Open H/L","v-ohl"],["F&O Watch","v-fno"],["Range","v-range"],["Global","v-glob"],["Movers","v-mov"],["News","v-news"],["FII/DII","v-fii"],["Watchlist","v-watch"]],nav=$("tabs");
+const T=[["Sentiment","v-sent"],["Sectors","v-sec"],["Stocks","v-stk"],["Retail Mood","v-mood"],["Open H/L","v-ohl"],["Breakout","v-brk"],["Scanner","v-scan"],["F&O Watch","v-fno"],["Range","v-range"],["Global","v-glob"],["Trade Tools","v-tools"],["Delta/Theta","v-delta"],["Movers","v-mov"],["News","v-news"],["FII/DII","v-fii"],["Watchlist","v-watch"]],nav=$("tabs");
 T.forEach((t,i)=>{const b=document.createElement("button");b.textContent=t[0];if(!i)b.className="on";
  b.onclick=()=>{[...nav.children].forEach(x=>x.className="");b.className="on";T.forEach(x=>$(x[1]).className=x[1]===t[1]?"":"hide")};nav.appendChild(b)});
 function load(){fetch("data.json?t="+Date.now()).then(r=>r.json()).then(render).catch(()=>{$("up").textContent="data.json load nahi hua"})}
 load();setInterval(load,300000);
+(function(){let ex="";try{ex=localStorage.getItem("exd")||""}catch(e){}
+ $("exd").innerHTML=["Set nahi","Monday","Tuesday","Wednesday","Thursday","Friday"].map((d,i)=>`<option value="${i}"${String(i)===ex?" selected":""}>${d}</option>`).join("");
+ $("exd").addEventListener("change",()=>{try{localStorage.setItem("exd",$("exd").value)}catch(e){}exb()});
+ $("dte").addEventListener("change",deltaTab);["rc1","rc2","rc3","rc4","rc5"].forEach(i=>$(i).addEventListener("input",rc));
+ rc();exb();ck();setInterval(phase,60000)})();
 </script>
 </body>
 </html>
